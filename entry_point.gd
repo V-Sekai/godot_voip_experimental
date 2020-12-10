@@ -8,7 +8,7 @@ const MIC_BUS_NAME = "Mic"
 
 var lobby_scene : Node = null
 
-onready var godot_speech = get_node("GodotSpeech")
+@onready var godot_speech = get_node("GodotSpeech")
 
 var is_connected : bool = false
 
@@ -66,15 +66,15 @@ func confirm_connection() -> void:
 	is_connected = true
 	voice_id = 0
 
-func set_buffer(p_buffer : PoolByteArray) -> void:
+func set_buffer(p_buffer : PackedByteArray) -> void:
 	audio_mutex.lock()
 	#input_audio_buffer_array.push_back(p_buffer)
 	audio_mutex.unlock()
 
-func _audio_packet_processed(p_buffer : PoolByteArray) -> void:
+func _audio_packet_processed(p_buffer : PackedByteArray) -> void:
 	if network_layer.is_active_player():
 		if p_buffer.size() == voice_manager_const.BUFFER_FRAME_COUNT * voice_manager_const.BUFFER_BYTE_COUNT:
-			var compressed_buffer : PoolByteArray = godot_speech.compress_buffer(p_buffer)
+			var compressed_buffer : PackedByteArray = godot_speech.compress_buffer(p_buffer)
 			if compressed_buffer:
 				set_buffer(compressed_buffer)
 
@@ -107,7 +107,7 @@ func _on_game_error(p_errtxt : String) -> void:
 	if lobby_scene:
 		lobby_scene.on_game_error(p_errtxt)
 
-func _on_received_audio_packet(p_id : int, p_index : int, p_packet : PoolByteArray) -> void:
+func _on_received_audio_packet(p_id : int, p_index : int, p_packet : PackedByteArray) -> void:
 	if network_layer.is_active_player():
 		godot_speech.voice_controller.on_received_audio_packet(p_id, p_index, p_packet)
 
@@ -129,25 +129,25 @@ func remove_player_audio(p_id):
 	audio_players.erase(p_id)
 
 func setup_connections() -> void:
-	if network_layer.connect("connection_failed", self, "_on_connection_failed") != OK:
+	if network_layer.connect("connection_failed", self._on_connection_failed) != OK:
 		printerr("connection_failed could not be connected!")
-	if network_layer.connect("connection_succeeded", self, "_on_connection_success") != OK:
+	if network_layer.connect("connection_succeeded", self._on_connection_success) != OK:
 		printerr("connection_succeeded could not be connected!")
-	if network_layer.connect("player_list_changed", self, "_player_list_changed") != OK:
+	if network_layer.connect("player_list_changed", self._player_list_changed) != OK:
 		printerr("player_list_changed could not be connected!")
-	if network_layer.connect("game_ended", self, "_on_game_ended") != OK:
+	if network_layer.connect("game_ended", self._on_game_ended) != OK:
 		printerr("game_ended could not be connected!")
-	if network_layer.connect("game_error", self, "_on_game_error") != OK:
+	if network_layer.connect("game_error", self._on_game_error) != OK:
 		printerr("game_error could not be connected!")
-	if network_layer.connect("received_audio_packet", self, "_on_received_audio_packet") != OK:
+	if network_layer.connect("received_audio_packet", self._on_received_audio_packet) != OK:
 		printerr("received_audio_packet could not be connected!")
-	if network_layer.connect("peer_connected", self, "add_player_audio"):
+	if network_layer.connect("peer_connected", self.add_player_audio):
 		printerr("peer_connected could not be connected!")
-	if network_layer.connect("peer_disconnected", self, "remove_player_audio"):
+	if network_layer.connect("peer_disconnected", self.remove_player_audio):
 		printerr("peer_disconnected could not be connected!")
 		
 	if lobby_scene:
-		if lobby_scene.connect("host_requested", self, "host") != OK:
+		if lobby_scene.connect("host_requested", self.host) != OK:
 			printerr("audio_packet_processed could not be connected!")
 
 

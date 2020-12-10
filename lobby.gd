@@ -2,6 +2,8 @@ extends Control
 
 signal host_requested(p_player_name, p_port, p_server_only)
 
+var error_dialog = preload("res://error_dialog.tscn").instance()
+
 func _on_host_pressed() -> void:
 	if get_node("connect/name").text == "":
 		get_node("connect/error_label").text = "Invalid name!"
@@ -39,6 +41,7 @@ func _on_join_pressed() -> void:
 func on_connection_success() -> void:
 	get_node("connect").hide()
 	get_node("players").show()
+	# on_game_error("Connected")
 
 func on_connection_failed() -> void:
 	get_node("connect/host").disabled = false
@@ -52,6 +55,9 @@ func on_game_ended() -> void:
 	get_node("connect/host").disabled = false
 
 func on_game_error(p_errtxt : String) -> void:
+	if error_dialog.get_parent() == null:
+		error_dialog.set_name("error")
+		add_child(error_dialog)
 	get_node("error").dialog_text = p_errtxt
 	get_node("error").popup_centered_minsize()
 

@@ -1,10 +1,10 @@
 extends Node
 
-const voice_manager_const = preload("bin/godot_speech_constants.gd")
-var blank_packet: PoolVector2Array = PoolVector2Array()
+const voice_manager_const = preload("godot_speech_constants.gd")
+var blank_packet: PackedVector2Array = PackedVector2Array()
 var player_audio: Dictionary = {}
 
-export (bool) var use_sample_stretching = true
+@export  var use_sample_stretching : bool = true
 
 const VOICE_PACKET_SAMPLERATE = 48000
 const BUFFER_DELAY_THRESHOLD = 0.1
@@ -21,8 +21,8 @@ const STREAM_BUS_NAME = "Mic"
 
 const DEBUG = false
 
-var uncompressed_audio: PoolVector2Array = PoolVector2Array()
-var decompress_funcref: FuncRef = null
+var uncompressed_audio: PackedVector2Array = PackedVector2Array()
+# var decompress_funcref: FuncRef = null
 
 # Debugging info
 var packets_received_this_frame: int = 0
@@ -65,6 +65,7 @@ func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
 			p_audio_stream_player.play()
 
 			var speech_decoder: Reference = get_node("..").get_speech_decoder()
+			print(speech_decoder)
 
 			player_audio[p_player_id] = {
 				"audio_stream_player": p_audio_stream_player,
@@ -95,7 +96,7 @@ func clear_all_player_audio() -> void:
 	player_audio = {}
 
 
-func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: PoolByteArray) -> void:
+func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: PackedByteArray) -> void:
 	vc_debug_print(
 		"received_audio_packet: peer_id: {id} sequence_id: {sequence_id}".format(
 			{"id": str(p_peer_id), "sequence_id": str(p_sequence_id)}
@@ -192,7 +193,7 @@ func attempt_to_feed_stream(
 		if packet:
 			var buffer = packet["packet"]
 			if buffer != null:
-				uncompressed_audio = decompress_funcref.call_func(
+				uncompressed_audio = get_node("..").decompress_buffer(
 					p_decoder, buffer, buffer.size(), uncompressed_audio
 				)
 				if uncompressed_audio:
@@ -226,10 +227,10 @@ func _process(_delta: float) -> void:
 func _ready() -> void:
 	uncompressed_audio.resize(voice_manager_const.BUFFER_FRAME_COUNT)
 
-	decompress_funcref = funcref(get_node(".."), "decompress_buffer")
+	# decompress_funcref = funcref(get_node(".."), "decompress_buffer")
 
 
-func _init() -> void:
+func _init():
 	blank_packet.resize(voice_manager_const.BUFFER_FRAME_COUNT)
 	for i in range(0, voice_manager_const.BUFFER_FRAME_COUNT):
 		blank_packet[i] = Vector2(0.0, 0.0)

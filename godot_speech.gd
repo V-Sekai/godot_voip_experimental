@@ -1,12 +1,9 @@
 extends Node
 
-const gdnlib_const = preload("bin/godot_speech.gdnlib")
-var godot_speech_nativescript: NativeScript = preload("bin/godot_speech.gdns")
-
 var voice_controller: Node = null
 const voice_controller_const = preload("voice_controller.gd")
 
-var godot_speech = null
+var godot_speech: Speech = null
 
 
 func get_skipped_audio_packets() -> int:
@@ -28,16 +25,17 @@ func start_recording() -> bool:
 
 func end_recording() -> bool:
 	if godot_speech:
-		return godot_speech.end_recording()
+		godot_speech.end_recording()
+		return true
 
 	return false
 
 
 func decompress_buffer(
 	p_decoder: Reference,
-	p_byte_array: PoolByteArray,
+	p_byte_array: PackedByteArray,
 	p_buffer_size: int,
-	p_uncompressed_audio: PoolVector2Array
+	p_uncompressed_audio: PackedVector2Array
 ):
 	return godot_speech.decompress_buffer(
 		p_decoder, p_byte_array, p_buffer_size, p_uncompressed_audio
@@ -52,7 +50,7 @@ func copy_and_clear_buffers() -> Array:
 		return []
 
 
-func on_received_external_audio_packet(p_peer_id: int, p_sequence_id: int, p_buffer: PoolByteArray) -> void:
+func on_received_external_audio_packet(p_peer_id: int, p_sequence_id: int, p_buffer: PackedByteArray) -> void:
 	voice_controller.on_received_audio_packet(p_peer_id, p_sequence_id, p_buffer)
 
 
@@ -78,16 +76,12 @@ func get_speech_decoder() -> Reference:
 
 
 func _ready() -> void:
-	if ! Engine.is_editor_hint():
+	if true: #if ! Engine.is_editor_hint():
 		voice_controller = voice_controller_const.new()
 		voice_controller.set_name("VoiceController")
 		add_child(voice_controller)
 
-		if gdnlib_const and gdnlib_const.get_current_library_path() != "":
-			if godot_speech_nativescript and godot_speech_nativescript.can_instance():
-				godot_speech = godot_speech_nativescript.new()
-				godot_speech.set_name("GodotSpeech")
-				add_child(godot_speech)
-				godot_speech.assign_voice_controller(voice_controller)
-			else:
-				printerr("GodotSpeech: could not instance godot_speech!")
+		godot_speech = Speech.new()
+		godot_speech.set_name("GodotSpeech")
+		add_child(godot_speech)
+		godot_speech.assign_voice_controller(voice_controller)
