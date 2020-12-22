@@ -65,7 +65,6 @@ func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
 			p_audio_stream_player.play()
 
 			var speech_decoder: Reference = get_node("..").get_speech_decoder()
-			print(speech_decoder)
 
 			player_audio[p_player_id] = {
 				"audio_stream_player": p_audio_stream_player,
@@ -95,6 +94,18 @@ func clear_all_player_audio() -> void:
 
 	player_audio = {}
 
+static func dict_get(dic: Dictionary, key: String) -> Variant:
+	for k in dic:
+		if k == key:
+			return dic[k]
+	return null
+
+static func dict_set(dic: Dictionary, key: String, val: Variant):
+	for k in dic:
+		if k == key:
+			dic[k] = val
+			return
+	dic[key] = val
 
 func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: PackedByteArray) -> void:
 	vc_debug_print(
@@ -106,14 +117,14 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 	if player_audio.has(p_peer_id):
 		
 		# Detects if no audio packets have been received from this player yet.
-		if player_audio[p_peer_id]["sequence_id"] == -1:
-			player_audio[p_peer_id]["sequence_id"] = p_sequence_id - 1
+		if dict_get(player_audio[p_peer_id],"sequence_id") == -1:
+			dict_set(player_audio[p_peer_id], "sequence_id", p_sequence_id - 1)
 			
 		player_audio[p_peer_id]["packets_received_this_frame"] += 1
 		packets_received_this_frame += 1
 
-		var current_sequence_id: int = player_audio[p_peer_id]["sequence_id"]
-		var jitter_buffer: Array = player_audio[p_peer_id]["jitter_buffer"]
+		var current_sequence_id: int = dict_get(player_audio[p_peer_id], "sequence_id")
+		var jitter_buffer: Array = dict_get(player_audio[p_peer_id], "jitter_buffer")
 
 		var sequence_id_offset: int = p_sequence_id - current_sequence_id
 		if sequence_id_offset > 0:
@@ -124,7 +135,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 
 				# If using stretching, fill with last received packet
 				if use_sample_stretching and ! jitter_buffer.empty():
-					fill_packets = jitter_buffer.back()["packet"]
+					fill_packets = dict_get(jitter_buffer.back(), "packet")
 
 				for _i in range(0, skipped_packets):
 					jitter_buffer.push_back({"packet": fill_packets, "valid": false})
@@ -138,7 +149,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 					player_audio[p_peer_id]["excess_packets"] += 1
 					jitter_buffer.pop_front()
 
-			player_audio[p_peer_id]["sequence_id"] += sequence_id_offset
+			dict_set(player_audio[p_peer_id], "sequence_id", dict_get(player_audio[p_peer_id], "sequence_id") + sequence_id_offset)
 		else:
 			var sequence_id: int = jitter_buffer.size() - 1 + sequence_id_offset
 			vc_debug_print("Updating existing sequence_id: %s" % str(sequence_id))
@@ -147,7 +158,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 				if use_sample_stretching:
 					var jitter_buffer_size = jitter_buffer.size()
 					for i in range(sequence_id, jitter_buffer_size - 1):
-						if jitter_buffer[i]["valid"]:
+						if dict_get(jitter_buffer[i], "valid"):
 							break
 
 						jitter_buffer[i] = {"packet": p_packet, "valid": false}
@@ -156,7 +167,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 			else:
 				vc_debug_printerr("invalid repair sequence_id!")
 
-		player_audio[p_peer_id]["jitter_buffer"] = jitter_buffer
+		dict_set(player_audio[p_peer_id], "jitter_buffer", jitter_buffer)
 
 
 func attempt_to_feed_stream(
@@ -178,7 +189,7 @@ func attempt_to_feed_stream(
 
 	var last_packet = null
 	if ! p_jitter_buffer.empty():
-		last_packet = p_jitter_buffer.back()["packet"]
+		last_packet = dict_get(p_jitter_buffer.back(), "packet")
 	while p_jitter_buffer.size() < required_packets:
 		var fill_packets = null
 		# If using stretching, fill with last received packet
@@ -191,8 +202,8 @@ func attempt_to_feed_stream(
 		var packet = p_jitter_buffer.pop_front()
 		var packet_pushed: bool = false
 		if packet:
-			var buffer = packet["packet"]
-			if buffer != null:
+			var buffer = dict_get(packet, "packet")
+			if buffer:
 				uncompressed_audio = get_node("..").decompress_buffer(
 					p_decoder, buffer, buffer.size(), uncompressed_audio
 				)
@@ -216,11 +227,11 @@ func _process(_delta: float) -> void:
 	for key in player_audio.keys():
 		attempt_to_feed_stream(
 			0,
-			player_audio[key]["speech_decoder"],
-			player_audio[key]["audio_stream_player"],
-			player_audio[key]["jitter_buffer"]
+			dict_get(player_audio[key],"speech_decoder"),
+			dict_get(player_audio[key],"audio_stream_player"),
+			dict_get(player_audio[key],"jitter_buffer")
 		)
-		player_audio[key]["packets_received_this_frame"] = 0
+		dict_set(player_audio[key], "packets_received_this_frame", 0)
 	packets_received_this_frame = 0
 
 

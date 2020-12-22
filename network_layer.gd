@@ -6,7 +6,7 @@ var blocking_sending_audio_packets : bool = false
 
 var is_server_only : bool = false
 var player_name : String = "Player"
-var players : Dictionary = {}
+var players : Dictionary
 
 signal peer_connected(p_id)
 signal peer_disconnected(p_id)
@@ -156,8 +156,9 @@ func decode_voice_packet(p_voice_buffer : PackedByteArray) -> Array:
 func send_audio_packet(p_index : int, p_data : PackedByteArray) -> void:
 	if not blocking_sending_audio_packets:
 		var compressed_audio_packet : PackedByteArray = encode_voice_packet(p_index , p_data)
-		if get_tree().multiplayer.send_bytes(compressed_audio_packet, NetworkedMultiplayerPeer.TARGET_PEER_BROADCAST, NetworkedMultiplayerPeer.TRANSFER_MODE_UNRELIABLE) != OK:
-			printerr("send_audio_packet: send_bytes failed!")
+		var e = get_tree().multiplayer.send_bytes(compressed_audio_packet, NetworkedMultiplayerPeer.TARGET_PEER_BROADCAST, NetworkedMultiplayerPeer.TRANSFER_MODE_UNRELIABLE)
+		if (e & 0xffffffff) != OK:
+			printerr("send_audio_packet: send_bytes failed! %s" % e)
 
 func get_full_player_list() -> Array:
 	var player_list = get_player_list()
@@ -193,3 +194,6 @@ func _ready() -> void:
 	connect_result = get_tree().multiplayer.connect("network_peer_packet", self._network_peer_packet)
 	if connect_result != OK:
 		printerr("NetworkManager: network_peer_packet could not be connected!")
+
+func _init():
+	players = Dictionary()
