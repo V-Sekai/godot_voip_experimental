@@ -1,6 +1,6 @@
 [gd_resource type="AudioBusLayout" load_steps=2 format=2]
 
-[sub_resource type="AudioEffectStream" id=1]
+[sub_resource type="AudioEffectCapture" id=1]
 resource_name = "Stream"
 
 [resource]
