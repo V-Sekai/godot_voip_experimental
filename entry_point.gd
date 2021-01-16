@@ -7,6 +7,7 @@ const PACKET_TICK_TIMESLICE = 10
 const MIC_BUS_NAME = "Mic"
 
 var lobby_scene : Node = null
+var debug_output : Label = null
 
 @onready var godot_speech = get_node("GodotSpeech")
 
@@ -197,11 +198,17 @@ func _process(p_delta):
 			network_layer.send_audio_packet(index, xba) # buffer["byte_array"] crashes
 			index += 1
 
+		var speech_statdict = godot_speech.godot_speech.get_stats()
+		var statdict = godot_speech.voice_controller.get_playback_stats(speech_statdict)
+		debug_output.set_text(JSON.print(statdict, "\t"))
+
 func _ready() -> void:
 	randomize()
 	
 	lobby_scene = lobby_scene_const.instance()
 	add_child(lobby_scene)
+	debug_output = lobby_scene.get_node("debug_output")
+	debug_output.set_text("Ready!")
 	
 	var microphone_stream = get_node("MicrophoneStreamAudio")
 	

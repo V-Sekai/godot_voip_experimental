@@ -8,6 +8,9 @@ var is_server_only : bool = false
 var player_name : String = "Player"
 var players : Dictionary
 
+@export var debug_output_path: NodePath = NodePath()
+var debug_output: Label = null
+
 signal peer_connected(p_id)
 signal peer_disconnected(p_id)
 signal player_list_changed()
@@ -17,20 +20,32 @@ signal game_ended()
 signal game_error(what)
 signal received_audio_packet(p_id, p_index, p_packet)
 
+static func bitand(a : int, b : int) -> int:
+	var c : int = 0
+	for x in range(64):
+		c += c
+		if (a < 0):
+			if (b < 0):
+				c += 1
+		a += a
+		b += b
+	return c
+
+
 static func encode_16_bit_value(p_value : int) -> PackedByteArray:
-	return PackedByteArray([(p_value & 0x000000ff), (p_value & 0x0000ff00) >> 8])
+	return PackedByteArray([bitand(p_value, 0x000000ff), bitand(p_value, 0x0000ff00) >> 8])
 
 static func decode_16_bit_value(p_buffer : PackedByteArray) -> int:
 	var integer : int = 0
-	integer = p_buffer[0] & 0x000000ff | (p_buffer[1] << 8) & 0x0000ff00
+	integer = bitand(p_buffer[0], 0x000000ff) | bitand((p_buffer[1] << 8), 0x0000ff00)
 	return integer
 
 static func encode_24_bit_value(p_value : int) -> PackedByteArray:
-	return PackedByteArray([(p_value & 0x000000ff), (p_value & 0x0000ff00) >> 8, (p_value & 0x00ff0000) >> 16])
+	return PackedByteArray([bitand(p_value, 0x000000ff), bitand(p_value, 0x0000ff00) >> 8, bitand(p_value, 0x00ff0000) >> 16])
 
 static func decode_24_bit_value(p_buffer : PackedByteArray) -> int:
 	var integer : int = 0
-	integer = p_buffer[0] & 0x000000ff | (p_buffer[1] << 8) & 0x0000ff00 | (p_buffer[2] << 16) & 0x00ff0000
+	integer = bitand(p_buffer[0], 0x000000ff) | bitand((p_buffer[1] << 8), 0x0000ff00) | bitand((p_buffer[2] << 16), 0x00ff0000)
 	return integer
 
 func is_active_player() -> bool:

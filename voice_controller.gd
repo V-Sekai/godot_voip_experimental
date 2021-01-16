@@ -7,7 +7,7 @@ var player_audio: Dictionary = {}
 @export  var use_sample_stretching : bool = true
 
 const VOICE_PACKET_SAMPLERATE = 48000
-const BUFFER_DELAY_THRESHOLD = 0.1
+const BUFFER_DELAY_THRESHOLD = 1.0  ### 0.1
 
 const STREAM_STANDARD_PITCH = 1.0
 const STREAM_SPEEDUP_PITCH = 1.5
@@ -26,6 +26,65 @@ var uncompressed_audio: PackedVector2Array = PackedVector2Array()
 
 # Debugging info
 var packets_received_this_frame: int = 0
+
+
+var playback_ring_buffer_length: int = 0
+
+class PlaybackStats:
+	var playback_ring_current_size: int = 0
+	var playback_ring_max_size: int = 0
+	var playback_ring_size_sum: float = 0.0
+	var playback_get_frames: float = 0.0
+	var playback_pushed_calls: int = 0
+	var playback_discarded_calls: int = 0
+	var playback_push_buffer_calls: int = 0
+	var playback_position: float = 0.0
+	var playback_skips: float = 0.0
+
+	var playback_ring_buffer_length: int = 0
+	var buffer_frame_count: int = 0
+
+	func get_playback_stats() -> Dictionary:
+		var playback_pushed_frames: float = playback_pushed_calls * (buffer_frame_count * 1.0)
+		var playback_discarded_frames: float = playback_discarded_calls * (buffer_frame_count * 1.0)
+		return {
+		"playback_ring_buffer_length": floor(playback_ring_buffer_length),
+		"playback_ring_current_size": floor(playback_ring_current_size),
+		"playback_ring_max_size": floor(playback_ring_max_size),
+		"playback_ring_mean_size": floor(playback_ring_size_sum / playback_push_buffer_calls),
+		"playback_position": playback_position,
+		"playback_get_percent": 100.0 * playback_get_frames / playback_pushed_frames,
+		"playback_discard_percent": 100.0 * playback_discarded_frames / playback_pushed_frames,
+		"playback_get_frames": floor(playback_get_frames),
+		"playback_pushed_frames": floor(playback_pushed_frames),
+		"playback_discarded_frames": floor(playback_discarded_frames),
+		"playback_push_buffer_calls": floor(playback_push_buffer_calls),
+		"playback_skips": floor(playback_skips),
+		}
+
+
+func nearest_shift(p_number: int) -> int:
+	for i in range(30, -1, -1):
+		if (p_number & (1 << i)):
+			return i + 1
+
+	return 0
+
+
+func calc_playback_ring_buffer_length(audio_stream_generator: AudioStreamGenerator) -> int:
+	var target_buffer_size = audio_stream_generator.mix_rate * audio_stream_generator.buffer_length;
+	return (1 << nearest_shift(target_buffer_size));
+
+
+func get_playback_stats(speech_statdict: Dictionary) -> Dictionary:
+	var statdict = {}
+	for skey in speech_statdict:
+		statdict[str(skey)] = floor(speech_statdict[skey])
+	statdict["capture_get_percent"] = 100.0 * dict_get(statdict, "capture_get_frames") / dict_get(statdict, "capture_pushed_frames")
+	statdict["capture_discard_percent"] = 100.0 * dict_get(statdict, "capture_discarded_frames") / dict_get(statdict, "capture_pushed_frames")
+	for key in player_audio.keys():
+		statdict[key] = dict_get(player_audio[key],"playback_stats").get_playback_stats()
+	return statdict
 
 
 func vc_debug_print(p_str):
@@ -58,6 +117,7 @@ func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
 			var new_generator: AudioStreamGenerator = AudioStreamGenerator.new()
 			new_generator.set_mix_rate(VOICE_PACKET_SAMPLERATE)
 			new_generator.set_buffer_length(BUFFER_DELAY_THRESHOLD)
+			playback_ring_buffer_length = calc_playback_ring_buffer_length(new_generator)
 
 			p_audio_stream_player.set_stream(new_generator)
 			p_audio_stream_player.bus = "VoiceOutput"
@@ -66,6 +126,9 @@ func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
 
 			var speech_decoder: Reference = get_node("..").get_speech_decoder()
 
+			var pstats = PlaybackStats.new()
+			pstats.playback_ring_buffer_length = playback_ring_buffer_length
+			pstats.buffer_frame_count = voice_manager_const.BUFFER_FRAME_COUNT
 			player_audio[p_player_id] = {
 				"audio_stream_player": p_audio_stream_player,
 				"jitter_buffer": [],
@@ -73,7 +136,9 @@ func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
 				"last_update": OS.get_ticks_msec(),
 				"packets_received_this_frame": 0,
 				"excess_packets": 0,
-				"speech_decoder": speech_decoder
+				"speech_decoder": speech_decoder,
+				"playback_stats": pstats,
+				"playback_started": false,
 			}
 		else:
 			printerr("Attempted to duplicate player_audio entry (%s)!" % p_player_id)
@@ -134,7 +199,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 				var fill_packets = null
 
 				# If using stretching, fill with last received packet
-				if use_sample_stretching and ! jitter_buffer.empty():
+				if use_sample_stretching and jitter_buffer.size() > 0:
 					fill_packets = dict_get(jitter_buffer.back(), "packet")
 
 				for _i in range(0, skipped_packets):
@@ -171,7 +236,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 
 
 func attempt_to_feed_stream(
-	p_skip_count: int, p_decoder: Reference, p_audio_stream_player: Node, p_jitter_buffer: Array
+	p_skip_count: int, p_decoder: Reference, p_audio_stream_player: Node, p_jitter_buffer: Array, p_playback_stats: PlaybackStats, p_player_dict: Dictionary
 ) -> void:
 	if p_audio_stream_player == null:
 		return
@@ -184,16 +249,20 @@ func attempt_to_feed_stream(
 		playback, voice_manager_const.BUFFER_FRAME_COUNT
 	)
 	
-	var skips: int = playback.get_skips()
-	vc_debug_print("packets skips: %s" % skips)
-
+	if not dict_get(p_player_dict,"playback_started"):
+		if float(playback.get_skips()) > 0:
+			p_player_dict["playback_started"] = true
+			p_jitter_buffer.clear()
+		else:
+			return
+	
 	var last_packet = null
-	if ! p_jitter_buffer.empty():
+	if p_jitter_buffer.size() > 0:
 		last_packet = dict_get(p_jitter_buffer.back(), "packet")
 	while p_jitter_buffer.size() < required_packets:
 		var fill_packets = null
 		# If using stretching, fill with last received packet
-		if use_sample_stretching and ! p_jitter_buffer.empty():
+		if use_sample_stretching and p_jitter_buffer.size() > 0:
 			fill_packets = last_packet
 
 		p_jitter_buffer.push_back({"packet": fill_packets, "valid": false})
@@ -201,6 +270,7 @@ func attempt_to_feed_stream(
 	for _i in range(0, required_packets):
 		var packet = p_jitter_buffer.pop_front()
 		var packet_pushed: bool = false
+		var push_result: bool = false
 		if packet:
 			var buffer = dict_get(packet, "packet")
 			if buffer:
@@ -209,12 +279,24 @@ func attempt_to_feed_stream(
 				)
 				if uncompressed_audio:
 					if uncompressed_audio.size() == voice_manager_const.BUFFER_FRAME_COUNT:
-						playback.push_buffer(uncompressed_audio)
+						push_result =  playback.push_buffer(uncompressed_audio)
 						packet_pushed = true
 		if ! packet_pushed:
-			playback.push_buffer(blank_packet)
+			push_result =  playback.push_buffer(blank_packet)
 
-	if use_sample_stretching and p_jitter_buffer.empty():
+		p_playback_stats.playback_ring_current_size = playback_ring_buffer_length - playback.get_frames_available()
+		p_playback_stats.playback_ring_max_size = p_playback_stats.playback_ring_current_size if p_playback_stats.playback_ring_current_size > p_playback_stats.playback_ring_max_size else p_playback_stats.playback_ring_max_size
+		p_playback_stats.playback_ring_size_sum += 1.0 * p_playback_stats.playback_ring_current_size
+		p_playback_stats.playback_position = playback.get_playback_position()
+		p_playback_stats.playback_get_frames = playback.get_playback_position() * VOICE_PACKET_SAMPLERATE
+		p_playback_stats.playback_push_buffer_calls += 1
+		if push_result:
+			p_playback_stats.playback_pushed_calls += 1
+		else:
+			p_playback_stats.playback_discarded_calls += 1
+		p_playback_stats.playback_skips = 1.0 * float(playback.get_skips())
+
+	if use_sample_stretching and p_jitter_buffer.size() == 0:
 		p_jitter_buffer.push_back({"packet": last_packet, "valid": false})
 		
 	# Speed up or slow down the audio stream to mitigate skipping
@@ -229,7 +311,9 @@ func _process(_delta: float) -> void:
 			0,
 			dict_get(player_audio[key],"speech_decoder"),
 			dict_get(player_audio[key],"audio_stream_player"),
-			dict_get(player_audio[key],"jitter_buffer")
+			dict_get(player_audio[key],"jitter_buffer"),
+			dict_get(player_audio[key],"playback_stats"),
+			player_audio[key]
 		)
 		dict_set(player_audio[key], "packets_received_this_frame", 0)
 	packets_received_this_frame = 0
