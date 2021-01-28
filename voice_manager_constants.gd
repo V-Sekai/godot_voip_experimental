@@ -3,9 +3,9 @@ const VOICE_SAMPLE_RATE = 48000 # samples / second
 const CHANNEL_COUNT = 1
 
 const MILLISECONDS_PER_SECOND = 1000
-const MILLISECONDS_PER_PACKET = 100
+const MILLISECONDS_PER_PACKET = 10
 
-const PACKET_DELTA_TIME = MILLISECONDS_PER_PACKET / MILLISECONDS_PER_SECOND
+const PACKET_DELTA_TIME = MILLISECONDS_PER_PACKET / float(MILLISECONDS_PER_SECOND)
 
 # samples/second / (seconds/packet)
 # samples/second * (milliseconds/packet) / (millisecond / seconds)

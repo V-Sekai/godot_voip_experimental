@@ -1,13 +1,14 @@
 extends Node
 
-const voice_manager_const = preload("godot_speech_constants.gd")
+const voice_manager_const = preload("voice_manager_constants.gd")
 var blank_packet: PackedVector2Array = PackedVector2Array()
 var player_audio: Dictionary = {}
 
 @export  var use_sample_stretching : bool = true
+var Xuse_sample_stretching : bool = false
 
 const VOICE_PACKET_SAMPLERATE = 48000
-const BUFFER_DELAY_THRESHOLD = 1.0  ### 0.1
+const BUFFER_DELAY_THRESHOLD = 0.1
 
 const STREAM_STANDARD_PITCH = 1.0
 const STREAM_SPEEDUP_PITCH = 1.5
@@ -38,27 +39,40 @@ class PlaybackStats:
 	var playback_pushed_calls: int = 0
 	var playback_discarded_calls: int = 0
 	var playback_push_buffer_calls: int = 0
+	var playback_blank_push_calls: int = 0
 	var playback_position: float = 0.0
 	var playback_skips: float = 0.0
+
+	var jitter_buffer_size_sum: float = 0.0
+	var jitter_buffer_calls: int = 0
+	var jitter_buffer_max_size: int = 0
+	var jitter_buffer_current_size: int = 0
 
 	var playback_ring_buffer_length: int = 0
 	var buffer_frame_count: int = 0
 
-	func get_playback_stats() -> Dictionary:
+	func get_playback_stats(outerscope) -> Dictionary:
 		var playback_pushed_frames: float = playback_pushed_calls * (buffer_frame_count * 1.0)
 		var playback_discarded_frames: float = playback_discarded_calls * (buffer_frame_count * 1.0)
 		return {
-		"playback_ring_buffer_length": floor(playback_ring_buffer_length),
-		"playback_ring_current_size": floor(playback_ring_current_size),
-		"playback_ring_max_size": floor(playback_ring_max_size),
-		"playback_ring_mean_size": floor(playback_ring_size_sum / playback_push_buffer_calls),
-		"playback_position": playback_position,
+		"playback_ring_limit_s": playback_ring_buffer_length / float(outerscope.VOICE_PACKET_SAMPLERATE),
+		"playback_ring_current_size_s": playback_ring_current_size / float(outerscope.VOICE_PACKET_SAMPLERATE),
+		"playback_ring_max_size_s": playback_ring_max_size / float(outerscope.VOICE_PACKET_SAMPLERATE),
+		"playback_ring_mean_size_s": playback_ring_size_sum / playback_push_buffer_calls / float(outerscope.VOICE_PACKET_SAMPLERATE),
+		"jitter_buffer_current_size_s": float(jitter_buffer_current_size) * outerscope.voice_manager_const.PACKET_DELTA_TIME,
+		"jitter_buffer_max_size_s": float(jitter_buffer_max_size) * outerscope.voice_manager_const.PACKET_DELTA_TIME,
+		"jitter_buffer_mean_size_s": float(jitter_buffer_size_sum) / jitter_buffer_calls * outerscope.voice_manager_const.PACKET_DELTA_TIME,
+		"jitter_buffer_calls": jitter_buffer_calls,
+		"playback_position_s": playback_position,
 		"playback_get_percent": 100.0 * playback_get_frames / playback_pushed_frames,
 		"playback_discard_percent": 100.0 * playback_discarded_frames / playback_pushed_frames,
-		"playback_get_frames": floor(playback_get_frames),
-		"playback_pushed_frames": floor(playback_pushed_frames),
-		"playback_discarded_frames": floor(playback_discarded_frames),
+		"playback_get_s": playback_get_frames / float(outerscope.VOICE_PACKET_SAMPLERATE),
+		"playback_pushed_s": playback_pushed_frames / float(outerscope.VOICE_PACKET_SAMPLERATE),
+		"playback_discarded_s": playback_discarded_frames / float(outerscope.VOICE_PACKET_SAMPLERATE),
 		"playback_push_buffer_calls": floor(playback_push_buffer_calls),
+		#"playback_blank_push_calls": floor(playback_blank_push_calls),
+		"playback_blank_s": playback_blank_push_calls * outerscope.voice_manager_const.PACKET_DELTA_TIME,
+		"playback_blank_percent": 100.0 * playback_blank_push_calls / playback_push_buffer_calls,
 		"playback_skips": floor(playback_skips),
 		}
 
@@ -79,11 +93,16 @@ func calc_playback_ring_buffer_length(audio_stream_generator: AudioStreamGenerat
 func get_playback_stats(speech_statdict: Dictionary) -> Dictionary:
 	var statdict = {}
 	for skey in speech_statdict:
-		statdict[str(skey)] = floor(speech_statdict[skey])
-	statdict["capture_get_percent"] = 100.0 * dict_get(statdict, "capture_get_frames") / dict_get(statdict, "capture_pushed_frames")
-	statdict["capture_discard_percent"] = 100.0 * dict_get(statdict, "capture_discarded_frames") / dict_get(statdict, "capture_pushed_frames")
+		statdict[str(skey)] = (speech_statdict[skey])
+	statdict["capture_get_percent"] = 100.0 * dict_get(statdict, "capture_get_s") / dict_get(statdict, "capture_pushed_s")
+	statdict["capture_discard_percent"] = 100.0 * dict_get(statdict, "capture_discarded_s") / dict_get(statdict, "capture_pushed_s")
 	for key in player_audio.keys():
-		statdict[key] = dict_get(player_audio[key],"playback_stats").get_playback_stats()
+		statdict[key] = dict_get(player_audio[key],"playback_stats").get_playback_stats(self)
+		#statdict[key]["playback_prev_ticks"] = dict_get(player_audio[key],"playback_prev_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+		#statdict[key]["playback_start_ticks"] = dict_get(player_audio[key],"playback_start_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+		statdict[key]["playback_total_time"] = (OS.get_ticks_msec() - dict_get(player_audio[key],"playback_start_time")) / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+		statdict[key]["excess_packets"] = dict_get(player_audio[key], "excess_packets")
+		statdict[key]["excess_s"] = dict_get(player_audio[key], "excess_packets") * voice_manager_const.PACKET_DELTA_TIME
 	return statdict
 
 
@@ -97,14 +116,14 @@ func vc_debug_printerr(p_str):
 		printerr(p_str)
 
 
-func get_required_packet_count(p_playback: AudioStreamPlayback, p_frame_size: int) -> int:
-	var to_fill: int = p_playback.get_frames_available()
-	var required_packets: int = 0
-	while to_fill >= p_frame_size:
-		to_fill -= p_frame_size
-		required_packets += 1
-
-	return required_packets
+#func get_required_packet_count(p_playback: AudioStreamPlayback, p_frame_size: int) -> int:
+#	var to_fill: int = p_playback.get_frames_available()
+#	var required_packets: int = 0
+#	while to_fill >= p_frame_size:
+#		to_fill -= p_frame_size
+#		required_packets += 1
+#
+#	return required_packets
 
 
 func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
@@ -138,7 +157,9 @@ func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
 				"excess_packets": 0,
 				"speech_decoder": speech_decoder,
 				"playback_stats": pstats,
-				"playback_started": false,
+				"playback_start_time": 0,
+				"playback_prev_time": -1,
+				"playback_last_skips": 0,
 			}
 		else:
 			printerr("Attempted to duplicate player_audio entry (%s)!" % p_player_id)
@@ -199,7 +220,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 				var fill_packets = null
 
 				# If using stretching, fill with last received packet
-				if use_sample_stretching and jitter_buffer.size() > 0:
+				if Xuse_sample_stretching and jitter_buffer.size() > 0:
 					fill_packets = dict_get(jitter_buffer.back(), "packet")
 
 				for _i in range(0, skipped_packets):
@@ -209,7 +230,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 
 			var excess_packet_count: int = jitter_buffer.size() - MAX_JITTER_BUFFER_SIZE
 			if excess_packet_count > 0:
-				print("Excess packet count: %s" % str(excess_packet_count))
+				# print("Excess packet count: %s" % str(excess_packet_count))
 				for _i in range(0, excess_packet_count):
 					player_audio[p_peer_id]["excess_packets"] += 1
 					jitter_buffer.pop_front()
@@ -220,7 +241,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 			vc_debug_print("Updating existing sequence_id: %s" % str(sequence_id))
 			if sequence_id >= 0:
 				# Update existing buffer
-				if use_sample_stretching:
+				if Xuse_sample_stretching:
 					var jitter_buffer_size = jitter_buffer.size()
 					for i in range(sequence_id, jitter_buffer_size - 1):
 						if dict_get(jitter_buffer[i], "valid"):
@@ -245,24 +266,32 @@ func attempt_to_feed_stream(
 		p_jitter_buffer.pop_front()
 
 	var playback: AudioStreamPlayback = p_audio_stream_player.get_stream_playback()
-	var required_packets: int = get_required_packet_count(
-		playback, voice_manager_const.BUFFER_FRAME_COUNT
-	)
+	#var required_packets: int = get_required_packet_count(
+	#	playback, voice_manager_const.BUFFER_FRAME_COUNT
+	#)
 	
-	if not dict_get(p_player_dict,"playback_started"):
+	if not dict_get(p_player_dict,"playback_start_time"):
 		if float(playback.get_skips()) > 0:
-			p_player_dict["playback_started"] = true
+			p_player_dict["playback_start_time"] = OS.get_ticks_msec()
+			p_player_dict["playback_prev_time"] = OS.get_ticks_msec()
 			p_jitter_buffer.clear()
 		else:
 			return
-	
+
+	if dict_get(p_player_dict,"playback_last_skips") != playback.get_skips():
+		p_player_dict["playback_prev_time"] = dict_get(p_player_dict,"playback_prev_time") - voice_manager_const.MILLISECONDS_PER_PACKET
+		p_player_dict["playback_last_skips"] = playback.get_skips()
+
+	var required_packets: int = (OS.get_ticks_msec() - dict_get(p_player_dict,"playback_prev_time")) / voice_manager_const.MILLISECONDS_PER_PACKET
+	p_player_dict["playback_prev_time"] = dict_get(p_player_dict,"playback_prev_time") + required_packets * voice_manager_const.MILLISECONDS_PER_PACKET
+
 	var last_packet = null
 	if p_jitter_buffer.size() > 0:
 		last_packet = dict_get(p_jitter_buffer.back(), "packet")
 	while p_jitter_buffer.size() < required_packets:
 		var fill_packets = null
 		# If using stretching, fill with last received packet
-		if use_sample_stretching and p_jitter_buffer.size() > 0:
+		if Xuse_sample_stretching and p_jitter_buffer.size() > 0:
 			fill_packets = last_packet
 
 		p_jitter_buffer.push_back({"packet": fill_packets, "valid": false})
@@ -290,15 +319,23 @@ func attempt_to_feed_stream(
 		p_playback_stats.playback_position = playback.get_playback_position()
 		p_playback_stats.playback_get_frames = playback.get_playback_position() * VOICE_PACKET_SAMPLERATE
 		p_playback_stats.playback_push_buffer_calls += 1
+		if ! packet_pushed:
+			p_playback_stats.playback_blank_push_calls += 1
 		if push_result:
 			p_playback_stats.playback_pushed_calls += 1
 		else:
 			p_playback_stats.playback_discarded_calls += 1
 		p_playback_stats.playback_skips = 1.0 * float(playback.get_skips())
 
-	if use_sample_stretching and p_jitter_buffer.size() == 0:
+	if Xuse_sample_stretching and p_jitter_buffer.size() == 0:
 		p_jitter_buffer.push_back({"packet": last_packet, "valid": false})
 		
+
+	p_playback_stats.jitter_buffer_size_sum += p_jitter_buffer.size()
+	p_playback_stats.jitter_buffer_calls += 1
+	p_playback_stats.jitter_buffer_max_size = p_jitter_buffer.size() if p_jitter_buffer.size() > p_playback_stats.jitter_buffer_max_size else p_playback_stats.jitter_buffer_max_size
+	p_playback_stats.jitter_buffer_current_size = p_jitter_buffer.size()
+
 	# Speed up or slow down the audio stream to mitigate skipping
 	if p_jitter_buffer.size() > JITTER_BUFFER_SPEEDUP:
 		p_audio_stream_player.pitch_scale = STREAM_SPEEDUP_PITCH
