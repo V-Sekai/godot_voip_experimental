@@ -95,8 +95,9 @@ func _on_game_ended() -> void:
 		lobby_scene.on_game_ended()
 
 func _on_game_error(p_errtxt : String) -> void:
-	if lobby_scene:
-		lobby_scene.on_game_error(p_errtxt)
+	if not lobby_scene:
+		return
+	lobby_scene.on_game_error(p_errtxt)
 
 func _on_received_audio_packet(p_id : int, p_index : int, p_packet : PackedByteArray) -> void:
 	if network_layer.is_active_player():
@@ -137,9 +138,10 @@ func setup_connections() -> void:
 	if network_layer.connect("peer_disconnected", self.remove_player_audio):
 		printerr("peer_disconnected could not be connected!")
 		
-	if lobby_scene:
-		if lobby_scene.connect("host_requested", self.host) != OK:
-			printerr("audio_packet_processed could not be connected!")
+	if not lobby_scene:
+		return
+	if lobby_scene.connect("host_requested", self.host) != OK:
+		printerr("audio_packet_processed could not be connected!")
 
 
 func process_input_audio(_delta : float):

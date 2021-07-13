@@ -25,9 +25,6 @@ var uncompressed_audio: PackedVector2Array = PackedVector2Array()
 var packets_received_this_frame: int = 0
 var playback_ring_buffer_length: int = 0
 
-func on_received_external_audio_packet(p_peer_id: int, p_sequence_id: int, p_buffer: PackedByteArray) -> void:
-	on_received_audio_packet(p_peer_id, p_sequence_id, p_buffer)
-
 class PlaybackStats:
 	var playback_ring_current_size: int = 0
 	var playback_ring_max_size: int = 0
@@ -115,16 +112,6 @@ func vc_debug_printerr(p_str):
 	printerr(p_str)
 
 
-#func get_required_packet_count(p_playback: AudioStreamPlayback, p_frame_size: int) -> int:
-#	var to_fill: int = p_playback.get_frames_available()
-#	var required_packets: int = 0
-#	while to_fill >= p_frame_size:
-#		to_fill -= p_frame_size
-#		required_packets += 1
-#
-#	return required_packets
-
-
 func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
 	if (
 		p_audio_stream_player is AudioStreamPlayer
@@ -199,60 +186,61 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 		)
 	)
 	
-	if player_audio.has(p_peer_id):
+	if not player_audio.has(p_peer_id):
+		return 
+
+	# Detects if no audio packets have been received from this player yet.
+	if dict_get(player_audio[p_peer_id],"sequence_id") == -1:
+		dict_set(player_audio[p_peer_id], "sequence_id", p_sequence_id - 1)
 		
-		# Detects if no audio packets have been received from this player yet.
-		if dict_get(player_audio[p_peer_id],"sequence_id") == -1:
-			dict_set(player_audio[p_peer_id], "sequence_id", p_sequence_id - 1)
-			
-		player_audio[p_peer_id]["packets_received_this_frame"] += 1
-		packets_received_this_frame += 1
+	player_audio[p_peer_id]["packets_received_this_frame"] += 1
+	packets_received_this_frame += 1
 
-		var current_sequence_id: int = dict_get(player_audio[p_peer_id], "sequence_id")
-		var jitter_buffer: Array = dict_get(player_audio[p_peer_id], "jitter_buffer")
+	var current_sequence_id: int = dict_get(player_audio[p_peer_id], "sequence_id")
+	var jitter_buffer: Array = dict_get(player_audio[p_peer_id], "jitter_buffer")
 
-		var sequence_id_offset: int = p_sequence_id - current_sequence_id
-		if sequence_id_offset > 0:
-			# For skipped buffers, add empty packets
-			var skipped_packets = sequence_id_offset - 1
-			if skipped_packets:
-				var fill_packets = null
+	var sequence_id_offset: int = p_sequence_id - current_sequence_id
+	if sequence_id_offset > 0:
+		# For skipped buffers, add empty packets
+		var skipped_packets = sequence_id_offset - 1
+		if skipped_packets:
+			var fill_packets = null
 
-				# If using stretching, fill with last received packet
-				if Xuse_sample_stretching and jitter_buffer.size() > 0:
-					fill_packets = dict_get(jitter_buffer.back(), "packet")
+			# If using stretching, fill with last received packet
+			if Xuse_sample_stretching and jitter_buffer.size() > 0:
+				fill_packets = dict_get(jitter_buffer.back(), "packet")
 
-				for _i in range(0, skipped_packets):
-					jitter_buffer.push_back({"packet": fill_packets, "valid": false})
-			# Add the new valid buffer
-			jitter_buffer.push_back({"packet": p_packet, "valid": true})
+			for _i in range(0, skipped_packets):
+				jitter_buffer.push_back({"packet": fill_packets, "valid": false})
+		# Add the new valid buffer
+		jitter_buffer.push_back({"packet": p_packet, "valid": true})
 
-			var excess_packet_count: int = jitter_buffer.size() - MAX_JITTER_BUFFER_SIZE
-			if excess_packet_count > 0:
-				# print("Excess packet count: %s" % str(excess_packet_count))
-				for _i in range(0, excess_packet_count):
-					player_audio[p_peer_id]["excess_packets"] += 1
-					jitter_buffer.pop_front()
+		var excess_packet_count: int = jitter_buffer.size() - MAX_JITTER_BUFFER_SIZE
+		if excess_packet_count > 0:
+			# print("Excess packet count: %s" % str(excess_packet_count))
+			for _i in range(0, excess_packet_count):
+				player_audio[p_peer_id]["excess_packets"] += 1
+				jitter_buffer.pop_front()
 
-			dict_set(player_audio[p_peer_id], "sequence_id", dict_get(player_audio[p_peer_id], "sequence_id") + sequence_id_offset)
+		dict_set(player_audio[p_peer_id], "sequence_id", dict_get(player_audio[p_peer_id], "sequence_id") + sequence_id_offset)
+	else:
+		var sequence_id: int = jitter_buffer.size() - 1 + sequence_id_offset
+		vc_debug_print("Updating existing sequence_id: %s" % str(sequence_id))
+		if sequence_id >= 0:
+			# Update existing buffer
+			if Xuse_sample_stretching:
+				var jitter_buffer_size = jitter_buffer.size()
+				for i in range(sequence_id, jitter_buffer_size - 1):
+					if dict_get(jitter_buffer[i], "valid"):
+						break
+
+					jitter_buffer[i] = {"packet": p_packet, "valid": false}
+
+			jitter_buffer[sequence_id] = {"packet": p_packet, "valid": true}
 		else:
-			var sequence_id: int = jitter_buffer.size() - 1 + sequence_id_offset
-			vc_debug_print("Updating existing sequence_id: %s" % str(sequence_id))
-			if sequence_id >= 0:
-				# Update existing buffer
-				if Xuse_sample_stretching:
-					var jitter_buffer_size = jitter_buffer.size()
-					for i in range(sequence_id, jitter_buffer_size - 1):
-						if dict_get(jitter_buffer[i], "valid"):
-							break
+			vc_debug_printerr("invalid repair sequence_id!")
 
-						jitter_buffer[i] = {"packet": p_packet, "valid": false}
-
-				jitter_buffer[sequence_id] = {"packet": p_packet, "valid": true}
-			else:
-				vc_debug_printerr("invalid repair sequence_id!")
-
-		dict_set(player_audio[p_peer_id], "jitter_buffer", jitter_buffer)
+	dict_set(player_audio[p_peer_id], "jitter_buffer", jitter_buffer)
 
 
 func attempt_to_feed_stream(
@@ -325,7 +313,6 @@ func attempt_to_feed_stream(
 
 	if Xuse_sample_stretching and p_jitter_buffer.size() == 0:
 		p_jitter_buffer.push_back({"packet": last_packet, "valid": false})
-		
 
 	p_playback_stats.jitter_buffer_size_sum += p_jitter_buffer.size()
 	p_playback_stats.jitter_buffer_calls += 1
