@@ -59,7 +59,7 @@ func on_game_error(p_errtxt : String) -> void:
 		error_dialog.set_name("error")
 		add_child(error_dialog)
 	get_node("error").dialog_text = p_errtxt
-	get_node("error").popup_centered_minsize()
+	get_node("error").popup_centered()
 
 func refresh_lobby(p_player_names : Array) -> void:
 	get_node("players/list").clear()
