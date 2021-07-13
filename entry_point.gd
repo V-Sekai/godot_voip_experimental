@@ -69,7 +69,7 @@ func confirm_connection() -> void:
 
 func set_buffer(p_buffer : PackedByteArray) -> void:
 	audio_mutex.lock()
-	#input_audio_buffer_array.push_back(p_buffer)
+#	input_audio_buffer_array.push_back(p_buffer)
 	audio_mutex.unlock()
 
 func _audio_packet_processed(p_buffer : PackedByteArray) -> void:

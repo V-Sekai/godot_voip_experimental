@@ -17,9 +17,6 @@ const MAX_JITTER_BUFFER_SIZE = 16
 const JITTER_BUFFER_SPEEDUP = 12
 const JITTER_BUFFER_SLOWDOWN = 6
 
-const MIC_BUS_NAME = "Mic"
-const STREAM_BUS_NAME = "Mic"
-
 const DEBUG = false
 
 var uncompressed_audio: PackedVector2Array = PackedVector2Array()
@@ -266,10 +263,7 @@ func attempt_to_feed_stream(
 		p_jitter_buffer.pop_front()
 
 	var playback: AudioStreamPlayback = p_audio_stream_player.get_stream_playback()
-	#var required_packets: int = get_required_packet_count(
-	#	playback, voice_manager_const.BUFFER_FRAME_COUNT
-	#)
-	
+
 	if not dict_get(p_player_dict,"playback_start_time"):
 		if float(playback.get_skips()) > 0:
 			p_player_dict["playback_start_time"] = Time.get_ticks_msec()
@@ -358,9 +352,6 @@ func _process(_delta: float) -> void:
 
 func _ready() -> void:
 	uncompressed_audio.resize(voice_manager_const.BUFFER_FRAME_COUNT)
-
-	# decompress_funcref = funcref(get_node(".."), "decompress_buffer")
-
 
 func _init():
 	blank_packet.resize(voice_manager_const.BUFFER_FRAME_COUNT)
