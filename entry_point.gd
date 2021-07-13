@@ -67,18 +67,6 @@ func confirm_connection() -> void:
 	is_connected = true
 	voice_id = 0
 
-func set_buffer(p_buffer : PackedByteArray) -> void:
-	audio_mutex.lock()
-#	input_audio_buffer_array.push_back(p_buffer)
-	audio_mutex.unlock()
-
-func _audio_packet_processed(p_buffer : PackedByteArray) -> void:
-	if network_layer.is_active_player():
-		if p_buffer.size() == voice_manager_const.BUFFER_FRAME_COUNT * voice_manager_const.BUFFER_BYTE_COUNT:
-			var compressed_buffer : PackedByteArray = godot_speech.compress_buffer(p_buffer)
-			if compressed_buffer:
-				set_buffer(compressed_buffer)
-
 func _on_connection_success() -> void:
 	if network_layer.is_active_player():
 		started()
