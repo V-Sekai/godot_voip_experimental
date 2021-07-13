@@ -80,7 +80,7 @@ func _server_disconnected() -> void:
 
 # Callback from SceneTree, only for clients (not server)
 func _connected_fail() -> void:
-	get_tree().set_network_peer(null) # Remove peer
+	get_tree().multiplayer.set_network_peer(null) # Remove peer
 	emit_signal("connection_failed")
 
 func _network_peer_packet(p_id : int, packet : PackedByteArray) -> void:
@@ -108,7 +108,7 @@ func _network_peer_packet(p_id : int, packet : PackedByteArray) -> void:
 		printerr("unregister_player: invalid id " + str(p_id))
 
 func is_network_server():
-	return get_tree().is_network_server()
+	return get_tree().multiplayer.is_network_server()
 
 func host_game(new_player_name : String, port : int, p_is_server_only : bool) -> bool:
 	player_name = new_player_name

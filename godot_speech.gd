@@ -76,7 +76,7 @@ func get_speech_decoder() -> RefCounted:
 
 
 func _ready() -> void:
-	if true: #if ! Engine.is_editor_hint():
+	if true:
 		voice_controller = voice_controller_const.new()
 		voice_controller.set_name("VoiceController")
 		add_child(voice_controller)
