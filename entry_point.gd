@@ -145,7 +145,6 @@ func process_input_audio(_delta : float):
 		var copied_voice_buffers : Array = godot_speech.copy_and_clear_buffers()
 		
 		var current_skipped: int = godot_speech.get_skipped_audio_packets()
-		#print("current_skipped: %s" % str(current_skipped))
 		godot_speech.clear_skipped_audio_packets()
 		
 		voice_id += current_skipped
@@ -202,7 +201,7 @@ func _ready() -> void:
 	var microphone_stream = get_node("MicrophoneStreamAudio")
 	
 	godot_speech.set_audio_input_stream_player(microphone_stream)
-	godot_speech.set_streaming_bus("Mic")
+	godot_speech.set_streaming_bus(MIC_BUS_NAME)
 	
 	setup_connections()
 	
