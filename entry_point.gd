@@ -180,13 +180,8 @@ func _process(p_delta):
 	process_input_audio(p_delta)
 	var index = get_current_voice_id()
 	var buffers: Array = get_voice_buffers()
-	var xba = null
 	for buffer in buffers:
-		var b:Dictionary = buffer
-		for key in b:
-			if key == "byte_array":
-				xba = b[key]
-		network_layer.send_audio_packet(index, xba) # buffer["byte_array"] crashes
+		network_layer.send_audio_packet(index, buffer["byte_array"])
 		index += 1
 
 	var speech_statdict = godot_speech.get_stats()

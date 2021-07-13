@@ -35,18 +35,22 @@ static func bitand(a : int, b : int) -> int:
 static func encode_16_bit_value(p_value : int) -> PackedByteArray:
 	return PackedByteArray([bitand(p_value, 0x000000ff), bitand(p_value, 0x0000ff00) >> 8])
 
+
 static func decode_16_bit_value(p_buffer : PackedByteArray) -> int:
 	var integer : int = 0
 	integer = bitand(p_buffer[0], 0x000000ff) | bitand((p_buffer[1] << 8), 0x0000ff00)
 	return integer
 
+
 static func encode_24_bit_value(p_value : int) -> PackedByteArray:
 	return PackedByteArray([bitand(p_value, 0x000000ff), bitand(p_value, 0x0000ff00) >> 8, bitand(p_value, 0x00ff0000) >> 16])
+
 
 static func decode_24_bit_value(p_buffer : PackedByteArray) -> int:
 	var integer : int = 0
 	integer = bitand(p_buffer[0], 0x000000ff) | bitand((p_buffer[1] << 8), 0x0000ff00) | bitand((p_buffer[2] << 16), 0x00ff0000)
 	return integer
+
 
 func is_active_player() -> bool:
 	if get_tree().multiplayer.is_network_server():
@@ -57,9 +61,11 @@ func is_active_player() -> bool:
 	else:
 		return true
 
+
 func _player_connected(p_id : int) -> void:
 	print(str(p_id) + " connected!")
 	emit_signal("peer_connected", p_id)
+
 
 func _player_disconnected(p_id : int) -> void:
 	if get_tree().multiplayer.is_network_server():
@@ -69,25 +75,31 @@ func _player_disconnected(p_id : int) -> void:
 			rpc_id(id, "unregister_player", p_id)
 	emit_signal("peer_disconnected", p_id)
 
+
 func _connected_ok() -> void:
 	rpc(StringName("register_player"), get_tree().multiplayer.get_network_unique_id(), player_name)
 	emit_signal("connection_succeeded")
+
 
 # Callback from SceneTree, only for clients (not server)
 func _server_disconnected() -> void:
 	emit_signal("game_error", "Server disconnected")
 	end_game()
 
+
 # Callback from SceneTree, only for clients (not server)
 func _connected_fail() -> void:
 	get_tree().multiplayer.set_network_peer(null) # Remove peer
 	emit_signal("connection_failed")
 
+
 func _network_peer_packet(p_id : int, packet : PackedByteArray) -> void:
 	var result : Array = decode_voice_packet(packet)
 	emit_signal("received_audio_packet", p_id, result[0], result[1])
 
+
 # Lobby management functions
+
 
 @remote func register_player(id : int, new_player_name : String) -> void:
 	if get_tree().multiplayer.is_network_server():
@@ -101,14 +113,17 @@ func _network_peer_packet(p_id : int, packet : PackedByteArray) -> void:
 	players[id] = new_player_name
 	emit_signal("player_list_changed")
 
+
 @remote func unregister_player(p_id : int) -> void:
 	if players.erase(p_id) == true:
 		emit_signal("player_list_changed")
 	else:
 		printerr("unregister_player: invalid id " + str(p_id))
 
+
 func is_network_server():
 	return get_tree().multiplayer.is_network_server()
+
 
 func host_game(new_player_name : String, port : int, p_is_server_only : bool) -> bool:
 	player_name = new_player_name
@@ -119,6 +134,7 @@ func host_game(new_player_name : String, port : int, p_is_server_only : bool) ->
 		return true
 	
 	return false
+
 
 func join_game(ip : String, port : int, new_player_name : String) -> void:
 	player_name = new_player_name

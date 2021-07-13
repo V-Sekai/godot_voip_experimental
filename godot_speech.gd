@@ -20,12 +20,9 @@ const JITTER_BUFFER_SLOWDOWN = 6
 const DEBUG = false
 
 var uncompressed_audio: PackedVector2Array = PackedVector2Array()
-# var decompress_funcref: FuncRef = null
 
 # Debugging info
 var packets_received_this_frame: int = 0
-
-
 var playback_ring_buffer_length: int = 0
 
 func on_received_external_audio_packet(p_peer_id: int, p_sequence_id: int, p_buffer: PackedByteArray) -> void:
@@ -107,13 +104,15 @@ func get_playback_stats(speech_statdict: Dictionary) -> Dictionary:
 
 
 func vc_debug_print(p_str):
-	if DEBUG:
-		print(p_str)
+	if not DEBUG:
+		return
+	print(p_str)
 
 
 func vc_debug_printerr(p_str):
-	if DEBUG:
-		printerr(p_str)
+	if not DEBUG:
+		return
+	printerr(p_str)
 
 
 #func get_required_packet_count(p_playback: AudioStreamPlayback, p_frame_size: int) -> int:
