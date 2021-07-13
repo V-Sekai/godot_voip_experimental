@@ -41,18 +41,20 @@ func reset_voice_id() -> void:
 	voice_id = 0
 
 func started():
-	if godot_speech:
-		godot_speech.start_recording()
-		
-		voice_recording_started = true
-		
-		reset_voice_id()
-		reset_voice_timeslice()
+	if not godot_speech:
+		return
+	godot_speech.start_recording()
+	
+	voice_recording_started = true
+	
+	reset_voice_id()
+	reset_voice_timeslice()
 		
 func ended():
-	if godot_speech:
-		godot_speech.end_recording()
-		voice_recording_started = false
+	if not godot_speech:
+		return
+	godot_speech.end_recording()
+	voice_recording_started = false
 
 func host(p_player_name : String, p_port : int, p_server_only : bool) -> void: 
 	if network_layer.host_game(p_player_name, p_port, p_server_only):
@@ -141,25 +143,26 @@ func setup_connections() -> void:
 
 
 func process_input_audio(_delta : float):
-	if godot_speech:
-		var copied_voice_buffers : Array = godot_speech.copy_and_clear_buffers()
-		
-		var current_skipped: int = godot_speech.get_skipped_audio_packets()
-		godot_speech.clear_skipped_audio_packets()
-		
-		voice_id += current_skipped
-		
-		voice_timeslice = (get_ticks_since_recording_started() / PACKET_TICK_TIMESLICE)\
-		- (copied_voice_buffers.size() + current_skipped)
-		
-		if copied_voice_buffers.size() > 0:
-			for voice_buffer in copied_voice_buffers:
-				voice_buffers.push_back(voice_buffer)
-					
-				if voice_buffers.size() > MAX_VOICE_BUFFERS:
-					printerr("Voice buffer overrun!")
-					voice_buffers.pop_front()
-					voice_buffer_overrun_count += 1
+	if not godot_speech:
+		return
+	var copied_voice_buffers : Array = godot_speech.copy_and_clear_buffers()
+	
+	var current_skipped: int = godot_speech.get_skipped_audio_packets()
+	godot_speech.clear_skipped_audio_packets()
+	
+	voice_id += current_skipped
+	
+	voice_timeslice = (get_ticks_since_recording_started() / PACKET_TICK_TIMESLICE)\
+	- (copied_voice_buffers.size() + current_skipped)
+	
+	if copied_voice_buffers.size() > 0:
+		for voice_buffer in copied_voice_buffers:
+			voice_buffers.push_back(voice_buffer)
+				
+			if voice_buffers.size() > MAX_VOICE_BUFFERS:
+				printerr("Voice buffer overrun!")
+				voice_buffers.pop_front()
+				voice_buffer_overrun_count += 1
 
 # This function increments the internal voice_id
 # Make sure to get it before calling it.
@@ -172,23 +175,24 @@ func get_voice_buffers() -> Array:
 	return copied_voice_buffers
 
 func _process(p_delta):
-	if voice_recording_started:
-		process_input_audio(p_delta)
-		var index = get_current_voice_id()
-		var buffers: Array = get_voice_buffers()
-		var xba = null
-		for buffer in buffers:
-			var b:Dictionary = buffer
-			for key in b:
-				if key == "byte_array":
-					xba = b[key]
-			network_layer.send_audio_packet(index, xba) # buffer["byte_array"] crashes
-			index += 1
+	if not voice_recording_started:
+		return
+	process_input_audio(p_delta)
+	var index = get_current_voice_id()
+	var buffers: Array = get_voice_buffers()
+	var xba = null
+	for buffer in buffers:
+		var b:Dictionary = buffer
+		for key in b:
+			if key == "byte_array":
+				xba = b[key]
+		network_layer.send_audio_packet(index, xba) # buffer["byte_array"] crashes
+		index += 1
 
-		var speech_statdict = godot_speech.get_stats()
-		var statdict = godot_speech.get_playback_stats(speech_statdict)
-		var json = JSON.new()
-		debug_output.set_text(json.stringify(statdict, "\t"))
+	var speech_statdict = godot_speech.get_stats()
+	var statdict = godot_speech.get_playback_stats(speech_statdict)
+	var json = JSON.new()
+	debug_output.set_text(json.stringify(statdict, "\t"))
 
 func _ready() -> void:
 	randomize()
