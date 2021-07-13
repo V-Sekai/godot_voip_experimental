@@ -198,7 +198,7 @@ func _process(p_delta):
 			network_layer.send_audio_packet(index, xba) # buffer["byte_array"] crashes
 			index += 1
 
-		var speech_statdict = godot_speech.godot_speech.get_stats()
+		var speech_statdict = godot_speech.get_stats()
 		var statdict = godot_speech.voice_controller.get_playback_stats(speech_statdict)
 		var json = JSON.new()
 		debug_output.set_text(json.stringify(statdict, "\t"))
