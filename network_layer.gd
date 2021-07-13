@@ -62,7 +62,7 @@ func _player_connected(p_id : int) -> void:
 	emit_signal("peer_connected", p_id)
 
 func _player_disconnected(p_id : int) -> void:
-	if get_tree().is_network_server():
+	if get_tree().multiplayer.is_network_server():
 		unregister_player(p_id)
 		for id in players:
 			# Erase in the server
@@ -70,7 +70,7 @@ func _player_disconnected(p_id : int) -> void:
 	emit_signal("peer_disconnected", p_id)
 
 func _connected_ok() -> void:
-	rpc("register_player", get_tree().get_network_unique_id(), player_name)
+	rpc(StringName("register_player"), get_tree().multiplayer.get_network_unique_id(), player_name)
 	emit_signal("connection_succeeded")
 
 # Callback from SceneTree, only for clients (not server)
@@ -90,13 +90,13 @@ func _network_peer_packet(p_id : int, packet : PackedByteArray) -> void:
 # Lobby management functions
 
 @remote func register_player(id : int, new_player_name : String) -> void:
-	if get_tree().is_network_server():
+	if get_tree().multiplayer.is_network_server():
 		if is_server_only == false:
-			rpc_id(id, "register_player", 1, player_name)
+			rpc_id(id, StringName("register_player"), 1, player_name)
 		
 		for p_id in players:
-			rpc_id(id, "register_player", p_id, players[p_id])
-			rpc_id(p_id, "register_player", id, new_player_name)
+			rpc_id(id, StringName("register_player"), p_id, players[p_id])
+			rpc_id(p_id, StringName("register_player"), id, new_player_name)
 
 	players[id] = new_player_name
 	emit_signal("player_list_changed")
@@ -195,15 +195,15 @@ func _input(p_event : InputEvent):
 func _ready() -> void:
 	var connect_result : int = OK
 	
-	if get_tree().connect("network_peer_connected", self._player_connected) != OK:
+	if get_tree().multiplayer.connect("network_peer_connected", self._player_connected) != OK:
 		printerr("could not connect network_peer_connected!")
-	if get_tree().connect("network_peer_disconnected", self._player_disconnected) != OK:
+	if get_tree().multiplayer.connect("network_peer_disconnected", self._player_disconnected) != OK:
 		printerr("could not connect network_peer_disconnected!")
-	if get_tree().connect("connected_to_server", self._connected_ok) != OK:
+	if get_tree().multiplayer.connect("connected_to_server", self._connected_ok) != OK:
 		printerr("could not connect connected_to_server!")
-	if get_tree().connect("connection_failed", self._connected_fail) != OK:
+	if get_tree().multiplayer.connect("connection_failed", self._connected_fail) != OK:
 		printerr("could not connect connection_failed!")
-	if get_tree().connect("server_disconnected", self._server_disconnected) != OK:
+	if get_tree().multiplayer.connect("server_disconnected", self._server_disconnected) != OK:
 		printerr("could not connect server_disconnected!")
 	
 	connect_result = get_tree().multiplayer.connect("network_peer_packet", self._network_peer_packet)

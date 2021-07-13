@@ -100,7 +100,7 @@ func get_playback_stats(speech_statdict: Dictionary) -> Dictionary:
 		statdict[key] = dict_get(player_audio[key],"playback_stats").get_playback_stats(self)
 		#statdict[key]["playback_prev_ticks"] = dict_get(player_audio[key],"playback_prev_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
 		#statdict[key]["playback_start_ticks"] = dict_get(player_audio[key],"playback_start_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
-		statdict[key]["playback_total_time"] = (OS.get_ticks_msec() - dict_get(player_audio[key],"playback_start_time")) / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+		statdict[key]["playback_total_time"] = (Time.get_ticks_msec() - dict_get(player_audio[key],"playback_start_time")) / float(voice_manager_const.MILLISECONDS_PER_SECOND)
 		statdict[key]["excess_packets"] = dict_get(player_audio[key], "excess_packets")
 		statdict[key]["excess_s"] = dict_get(player_audio[key], "excess_packets") * voice_manager_const.PACKET_DELTA_TIME
 	return statdict
@@ -152,7 +152,7 @@ func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
 				"audio_stream_player": p_audio_stream_player,
 				"jitter_buffer": [],
 				"sequence_id": -1,
-				"last_update": OS.get_ticks_msec(),
+				"last_update": Time.get_ticks_msec(),
 				"packets_received_this_frame": 0,
 				"excess_packets": 0,
 				"speech_decoder": speech_decoder,
@@ -272,8 +272,8 @@ func attempt_to_feed_stream(
 	
 	if not dict_get(p_player_dict,"playback_start_time"):
 		if float(playback.get_skips()) > 0:
-			p_player_dict["playback_start_time"] = OS.get_ticks_msec()
-			p_player_dict["playback_prev_time"] = OS.get_ticks_msec()
+			p_player_dict["playback_start_time"] = Time.get_ticks_msec()
+			p_player_dict["playback_prev_time"] = Time.get_ticks_msec()
 			p_jitter_buffer.clear()
 		else:
 			return
@@ -282,7 +282,7 @@ func attempt_to_feed_stream(
 		p_player_dict["playback_prev_time"] = dict_get(p_player_dict,"playback_prev_time") - voice_manager_const.MILLISECONDS_PER_PACKET
 		p_player_dict["playback_last_skips"] = playback.get_skips()
 
-	var required_packets: int = (OS.get_ticks_msec() - dict_get(p_player_dict,"playback_prev_time")) / voice_manager_const.MILLISECONDS_PER_PACKET
+	var required_packets: int = (Time.get_ticks_msec() - dict_get(p_player_dict,"playback_prev_time")) / voice_manager_const.MILLISECONDS_PER_PACKET
 	p_player_dict["playback_prev_time"] = dict_get(p_player_dict,"playback_prev_time") + required_packets * voice_manager_const.MILLISECONDS_PER_PACKET
 
 	var last_packet = null
