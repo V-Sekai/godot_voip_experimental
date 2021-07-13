@@ -2,7 +2,7 @@ extends Control
 
 signal host_requested(p_player_name, p_port, p_server_only)
 
-var error_dialog = preload("res://error_dialog.tscn").instance()
+var error_dialog = preload("res://error_dialog.tscn").instantiate()
 
 func _on_host_pressed() -> void:
 	if get_node("connect/name").text == "":

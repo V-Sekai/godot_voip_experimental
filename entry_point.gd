@@ -31,7 +31,7 @@ func get_voice_timeslice() -> int:
 	return voice_timeslice
 	
 func reset_voice_timeslice() -> void:
-	audio_start_tick = OS.get_ticks_msec()
+	audio_start_tick = Time.get_ticks_msec()
 	voice_timeslice = 0
 
 func get_current_voice_id() -> int:
@@ -113,7 +113,7 @@ func _on_received_audio_packet(p_id : int, p_index : int, p_packet : PackedByteA
 		godot_speech.voice_controller.on_received_audio_packet(p_id, p_index, p_packet)
 
 func get_ticks_since_recording_started() -> int:
-	return (OS.get_ticks_msec() - audio_start_tick)
+	return (Time.get_ticks_msec() - audio_start_tick)
 
 func add_player_audio(p_id):
 	var audio_stream_player = AudioStreamPlayer.new()
@@ -200,12 +200,13 @@ func _process(p_delta):
 
 		var speech_statdict = godot_speech.godot_speech.get_stats()
 		var statdict = godot_speech.voice_controller.get_playback_stats(speech_statdict)
-		debug_output.set_text(JSON.print(statdict, "\t"))
+		var json = JSON.new()
+		debug_output.set_text(json.stringify(statdict, "\t"))
 
 func _ready() -> void:
 	randomize()
 	
-	lobby_scene = lobby_scene_const.instance()
+	lobby_scene = lobby_scene_const.instantiate()
 	add_child(lobby_scene)
 	debug_output = lobby_scene.get_node("debug_output")
 	debug_output.set_text("Ready!")

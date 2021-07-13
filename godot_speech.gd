@@ -32,7 +32,7 @@ func end_recording() -> bool:
 
 
 func decompress_buffer(
-	p_decoder: Reference,
+	p_decoder: RefCounted,
 	p_byte_array: PackedByteArray,
 	p_buffer_size: int,
 	p_uncompressed_audio: PackedVector2Array
@@ -68,7 +68,7 @@ func set_audio_input_stream_player(p_audio_stream_player: AudioStreamPlayer) -> 
 		printerr("Could not set audio input stream player")
 
 
-func get_speech_decoder() -> Reference:
+func get_speech_decoder() -> RefCounted:
 	if godot_speech:
 		return godot_speech.get_speech_decoder()
 	else:

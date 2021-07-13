@@ -49,7 +49,7 @@ static func decode_24_bit_value(p_buffer : PackedByteArray) -> int:
 	return integer
 
 func is_active_player() -> bool:
-	if get_tree().is_network_server():
+	if get_tree().multiplayer.is_network_server():
 		if !is_server_only:
 			return true
 		else:
@@ -113,18 +113,18 @@ func is_network_server():
 func host_game(new_player_name : String, port : int, p_is_server_only : bool) -> bool:
 	player_name = new_player_name
 	is_server_only = p_is_server_only
-	var host : NetworkedMultiplayerENet = NetworkedMultiplayerENet.new()
+	var host : ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	if host.create_server(port, MAX_PEERS) == OK:
-		get_tree().set_network_peer(host)
+		get_tree().multiplayer.network_peer = host
 		return true
 	
 	return false
 
 func join_game(ip : String, port : int, new_player_name : String) -> void:
 	player_name = new_player_name
-	var host : NetworkedMultiplayerENet = NetworkedMultiplayerENet.new()
+	var host : ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	if host.create_client(ip, port) == OK:
-		get_tree().set_network_peer(host)
+		get_tree().multiplayer.network_peer = host
 
 func get_player_list() -> Array:
 	return players.values()
@@ -171,7 +171,7 @@ func decode_voice_packet(p_voice_buffer : PackedByteArray) -> Array:
 func send_audio_packet(p_index : int, p_data : PackedByteArray) -> void:
 	if not blocking_sending_audio_packets:
 		var compressed_audio_packet : PackedByteArray = encode_voice_packet(p_index , p_data)
-		var e = get_tree().multiplayer.send_bytes(compressed_audio_packet, NetworkedMultiplayerPeer.TARGET_PEER_BROADCAST, NetworkedMultiplayerPeer.TRANSFER_MODE_UNRELIABLE)
+		var e = get_tree().multiplayer.send_bytes(compressed_audio_packet, MultiplayerPeer.TARGET_PEER_BROADCAST, MultiplayerPeer.TRANSFER_MODE_UNRELIABLE)
 		if (e & 0xffffffff) != OK:
 			printerr("send_audio_packet: send_bytes failed! %s" % e)
 

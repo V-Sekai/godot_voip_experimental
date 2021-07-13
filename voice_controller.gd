@@ -143,7 +143,7 @@ func add_player_audio(p_player_id: int, p_audio_stream_player: Node) -> void:
 			p_audio_stream_player.autoplay = true
 			p_audio_stream_player.play()
 
-			var speech_decoder: Reference = get_node("..").get_speech_decoder()
+			var speech_decoder: RefCounted = get_node("..").get_speech_decoder()
 
 			var pstats = PlaybackStats.new()
 			pstats.playback_ring_buffer_length = playback_ring_buffer_length
@@ -257,7 +257,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 
 
 func attempt_to_feed_stream(
-	p_skip_count: int, p_decoder: Reference, p_audio_stream_player: Node, p_jitter_buffer: Array, p_playback_stats: PlaybackStats, p_player_dict: Dictionary
+	p_skip_count: int, p_decoder: RefCounted, p_audio_stream_player: Node, p_jitter_buffer: Array, p_playback_stats: PlaybackStats, p_player_dict: Dictionary
 ) -> void:
 	if p_audio_stream_player == null:
 		return

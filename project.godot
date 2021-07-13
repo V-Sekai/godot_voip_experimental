@@ -25,8 +25,8 @@ network_layer="*res://network_layer.gd"
 
 [gdnative]
 
-singletons=[  ]
-singletons_disabled=[  ]
+singletons=[]
+singletons_disabled=[]
 
 [rendering]
 

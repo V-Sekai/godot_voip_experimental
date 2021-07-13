@@ -14,5 +14,5 @@ script = ExtResource( 1 )
 [node name="MicrophoneStreamAudio" type="AudioStreamPlayer" parent="."]
 stream = SubResource( 1 )
 autoplay = true
-bus = @"Mic"
+bus = &"Mic"
 script = null
