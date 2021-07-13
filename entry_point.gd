@@ -110,7 +110,7 @@ func _on_game_error(p_errtxt : String) -> void:
 
 func _on_received_audio_packet(p_id : int, p_index : int, p_packet : PackedByteArray) -> void:
 	if network_layer.is_active_player():
-		godot_speech.voice_controller.on_received_audio_packet(p_id, p_index, p_packet)
+		godot_speech.on_received_audio_packet(p_id, p_index, p_packet)
 
 func get_ticks_since_recording_started() -> int:
 	return (Time.get_ticks_msec() - audio_start_tick)
@@ -120,7 +120,7 @@ func add_player_audio(p_id):
 	audio_players[p_id] = audio_stream_player
 	audio_stream_player.set_name(str(p_id))
 	
-	godot_speech.voice_controller.add_player_audio(p_id, audio_stream_player)
+	godot_speech.add_player_audio(p_id, audio_stream_player)
 	add_child(audio_stream_player)
 	
 func remove_player_audio(p_id):
@@ -199,7 +199,7 @@ func _process(p_delta):
 			index += 1
 
 		var speech_statdict = godot_speech.get_stats()
-		var statdict = godot_speech.voice_controller.get_playback_stats(speech_statdict)
+		var statdict = godot_speech.get_playback_stats(speech_statdict)
 		var json = JSON.new()
 		debug_output.set_text(json.stringify(statdict, "\t"))
 
