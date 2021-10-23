@@ -1,3 +1,3 @@
 # godot_voip_experimental
 
-Use https://github.com/godot-extended-libraries/godot-fire/commits/features/speech
+Soon to be moved to https://github.com/V-Sekai/godot_speech
