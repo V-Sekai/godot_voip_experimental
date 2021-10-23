@@ -53,7 +53,7 @@ static func decode_24_bit_value(p_buffer : PackedByteArray) -> int:
 
 
 func is_active_player() -> bool:
-	if get_tree().multiplayer.is_network_server():
+	if get_tree().multiplayer.is_server():
 		if !is_server_only:
 			return true
 		else:
@@ -77,7 +77,7 @@ func _player_disconnected(p_id : int) -> void:
 
 
 func _connected_ok() -> void:
-	rpc(StringName("register_player"), get_tree().multiplayer.get_network_unique_id(), player_name)
+	rpc(StringName("register_player"), get_tree().multiplayer.get_unique_id(), player_name)
 	emit_signal("connection_succeeded")
 
 
@@ -101,7 +101,8 @@ func _network_peer_packet(p_id : int, packet : PackedByteArray) -> void:
 # Lobby management functions
 
 
-@remote func register_player(id : int, new_player_name : String) -> void:
+@rpc(authority)
+func register_player(id : int, new_player_name : String) -> void:
 	if get_tree().multiplayer.is_network_server():
 		if is_server_only == false:
 			rpc_id(id, StringName("register_player"), 1, player_name)
@@ -114,7 +115,8 @@ func _network_peer_packet(p_id : int, packet : PackedByteArray) -> void:
 	emit_signal("player_list_changed")
 
 
-@remote func unregister_player(p_id : int) -> void:
+@rpc(authority)
+func unregister_player(p_id : int) -> void:
 	if players.erase(p_id) == true:
 		emit_signal("player_list_changed")
 	else:
@@ -130,7 +132,7 @@ func host_game(new_player_name : String, port : int, p_is_server_only : bool) ->
 	is_server_only = p_is_server_only
 	var host : ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	if host.create_server(port, MAX_PEERS) == OK:
-		get_tree().multiplayer.network_peer = host
+		get_tree().multiplayer.multiplayer_peer = host
 		return true
 	
 	return false
@@ -140,7 +142,7 @@ func join_game(ip : String, port : int, new_player_name : String) -> void:
 	player_name = new_player_name
 	var host : ENetMultiplayerPeer = ENetMultiplayerPeer.new()
 	if host.create_client(ip, port) == OK:
-		get_tree().multiplayer.network_peer = host
+		get_tree().multiplayer.multiplayer_peer = host
 
 func get_player_list() -> Array:
 	return players.values()
@@ -187,7 +189,7 @@ func decode_voice_packet(p_voice_buffer : PackedByteArray) -> Array:
 func send_audio_packet(p_index : int, p_data : PackedByteArray) -> void:
 	if not blocking_sending_audio_packets:
 		var compressed_audio_packet : PackedByteArray = encode_voice_packet(p_index , p_data)
-		var e = get_tree().multiplayer.send_bytes(compressed_audio_packet, MultiplayerPeer.TARGET_PEER_BROADCAST, MultiplayerPeer.TRANSFER_MODE_UNRELIABLE)
+		var e = get_tree().multiplayer.send_bytes(compressed_audio_packet, 0, TRANSFER_MODE_UNRELIABLE, 1)
 		if (e & 0xffffffff) != OK:
 			printerr("send_audio_packet: send_bytes failed! %s" % e)
 
@@ -211,9 +213,9 @@ func _input(p_event : InputEvent):
 func _ready() -> void:
 	var connect_result : int = OK
 	
-	if get_tree().multiplayer.connect("network_peer_connected", self._player_connected) != OK:
+	if get_tree().multiplayer.connect("peer_connected", self._player_connected) != OK:
 		printerr("could not connect network_peer_connected!")
-	if get_tree().multiplayer.connect("network_peer_disconnected", self._player_disconnected) != OK:
+	if get_tree().multiplayer.connect("peer_disconnected", self._player_disconnected) != OK:
 		printerr("could not connect network_peer_disconnected!")
 	if get_tree().multiplayer.connect("connected_to_server", self._connected_ok) != OK:
 		printerr("could not connect connected_to_server!")
@@ -222,7 +224,7 @@ func _ready() -> void:
 	if get_tree().multiplayer.connect("server_disconnected", self._server_disconnected) != OK:
 		printerr("could not connect server_disconnected!")
 	
-	connect_result = get_tree().multiplayer.connect("network_peer_packet", self._network_peer_packet)
+	connect_result = get_tree().multiplayer.connect("peer_packet", self._network_peer_packet)
 	if connect_result != OK:
 		printerr("NetworkManager: network_peer_packet could not be connected!")
 
