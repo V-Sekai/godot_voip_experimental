@@ -88,15 +88,15 @@ func get_playback_stats(speech_statdict: Dictionary) -> Dictionary:
 	var statdict = {}
 	for skey in speech_statdict:
 		statdict[str(skey)] = (speech_statdict[skey])
-	statdict["capture_get_percent"] = 100.0 * dict_get(statdict, "capture_get_s") / dict_get(statdict, "capture_pushed_s")
-	statdict["capture_discard_percent"] = 100.0 * dict_get(statdict, "capture_discarded_s") / dict_get(statdict, "capture_pushed_s")
-	for key in player_audio.keys():
-		statdict[key] = dict_get(player_audio[key],"playback_stats").get_playback_stats(self)
-		#statdict[key]["playback_prev_ticks"] = dict_get(player_audio[key],"playback_prev_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
-		#statdict[key]["playback_start_ticks"] = dict_get(player_audio[key],"playback_start_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
-		statdict[key]["playback_total_time"] = (Time.get_ticks_msec() - dict_get(player_audio[key],"playback_start_time")) / float(voice_manager_const.MILLISECONDS_PER_SECOND)
-		statdict[key]["excess_packets"] = dict_get(player_audio[key], "excess_packets")
-		statdict[key]["excess_s"] = dict_get(player_audio[key], "excess_packets") * voice_manager_const.PACKET_DELTA_TIME
+	statdict["capture_get_percent"] = 100.0 * statdict["capture_get_s"] / statdict["capture_pushed_s"]
+	statdict["capture_discard_percent"] = 100.0 * statdict["capture_discarded_s"] / statdict["capture_pushed_s"]
+#	for key in player_audio.keys():
+#		statdict[key] = player_audio[key]["playback_stats"].get_playback_stats(self)
+#		#statdict[key]["playback_prev_ticks"] = dict_get(player_audio[key],"playback_prev_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+#		#statdict[key]["playback_start_ticks"] = dict_get(player_audio[key],"playback_start_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+#		statdict[key]["playback_total_time"] = (Time.get_ticks_msec() - player_audio[key]["playback_start_time"]) / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+#		statdict[key]["excess_packets"] = player_audio[key]["excess_packets"]
+#		statdict[key]["excess_s"] = player_audio[key]["excess_packets"] * voice_manager_const.PACKET_DELTA_TIME
 	return statdict
 
 
@@ -166,19 +166,6 @@ func clear_all_player_audio() -> void:
 
 	player_audio = {}
 
-static func dict_get(dic: Dictionary, key: String) -> Variant:
-	for k in dic:
-		if k == key:
-			return dic[k]
-	return null
-
-static func dict_set(dic: Dictionary, key: String, val: Variant):
-	for k in dic:
-		if k == key:
-			dic[k] = val
-			return
-	dic[key] = val
-
 func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: PackedByteArray) -> void:
 	vc_debug_print(
 		"received_audio_packet: peer_id: {id} sequence_id: {sequence_id}".format(
@@ -190,14 +177,14 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 		return 
 
 	# Detects if no audio packets have been received from this player yet.
-	if dict_get(player_audio[p_peer_id],"sequence_id") == -1:
-		dict_set(player_audio[p_peer_id], "sequence_id", p_sequence_id - 1)
+	if player_audio[p_peer_id]["sequence_id"] == -1:
+		player_audio[p_peer_id]["sequence_id"] = p_sequence_id - 1
 		
 	player_audio[p_peer_id]["packets_received_this_frame"] += 1
 	packets_received_this_frame += 1
 
-	var current_sequence_id: int = dict_get(player_audio[p_peer_id], "sequence_id")
-	var jitter_buffer: Array = dict_get(player_audio[p_peer_id], "jitter_buffer")
+	var current_sequence_id: int = player_audio[p_peer_id]["sequence_id"]
+	var jitter_buffer: Array = player_audio[p_peer_id]["jitter_buffer"]
 
 	var sequence_id_offset: int = p_sequence_id - current_sequence_id
 	if sequence_id_offset > 0:
@@ -208,7 +195,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 
 			# If using stretching, fill with last received packet
 			if Xuse_sample_stretching and jitter_buffer.size() > 0:
-				fill_packets = dict_get(jitter_buffer.back(), "packet")
+				fill_packets = jitter_buffer.back()["packet"]
 
 			for _i in range(0, skipped_packets):
 				jitter_buffer.push_back({"packet": fill_packets, "valid": false})
@@ -222,7 +209,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 				player_audio[p_peer_id]["excess_packets"] += 1
 				jitter_buffer.pop_front()
 
-		dict_set(player_audio[p_peer_id], "sequence_id", dict_get(player_audio[p_peer_id], "sequence_id") + sequence_id_offset)
+		player_audio[p_peer_id]["sequence_id"] = player_audio[p_peer_id]["sequence_id"] + sequence_id_offset
 	else:
 		var sequence_id: int = jitter_buffer.size() - 1 + sequence_id_offset
 		vc_debug_print("Updating existing sequence_id: %s" % str(sequence_id))
@@ -231,7 +218,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 			if Xuse_sample_stretching:
 				var jitter_buffer_size = jitter_buffer.size()
 				for i in range(sequence_id, jitter_buffer_size - 1):
-					if dict_get(jitter_buffer[i], "valid"):
+					if jitter_buffer[i]["valid"]:
 						break
 
 					jitter_buffer[i] = {"packet": p_packet, "valid": false}
@@ -240,7 +227,7 @@ func on_received_audio_packet(p_peer_id: int, p_sequence_id: int, p_packet: Pack
 		else:
 			vc_debug_printerr("invalid repair sequence_id!")
 
-	dict_set(player_audio[p_peer_id], "jitter_buffer", jitter_buffer)
+	player_audio[p_peer_id]["jitter_buffer"] = jitter_buffer
 
 
 func attempt_to_feed_stream(
@@ -254,7 +241,7 @@ func attempt_to_feed_stream(
 
 	var playback: AudioStreamPlayback = p_audio_stream_player.get_stream_playback()
 		
-	if not dict_get(p_player_dict,"playback_start_time"):
+	if not p_player_dict["playback_start_time"]:
 		if float(playback.get_skips()) > 0:
 			p_player_dict["playback_start_time"] = Time.get_ticks_msec()
 			p_player_dict["playback_prev_time"] = Time.get_ticks_msec()
@@ -267,12 +254,12 @@ func attempt_to_feed_stream(
 #		p_player_dict["playback_prev_time"] = dict_get(p_player_dict,"playback_prev_time") - voice_manager_const.MILLISECONDS_PER_PACKET
 #		p_player_dict["playback_last_skips"] = playback.get_skips()
 
-	var required_packets: int = (Time.get_ticks_msec() - dict_get(p_player_dict,"playback_prev_time")) / voice_manager_const.MILLISECONDS_PER_PACKET
-	p_player_dict["playback_prev_time"] = dict_get(p_player_dict,"playback_prev_time") + required_packets * voice_manager_const.MILLISECONDS_PER_PACKET
+	var required_packets: int = (Time.get_ticks_msec() - p_player_dict["playback_prev_time"]) / voice_manager_const.MILLISECONDS_PER_PACKET
+	p_player_dict["playback_prev_time"] = p_player_dict["playback_prev_time"] + required_packets * voice_manager_const.MILLISECONDS_PER_PACKET
 
 	var last_packet = null
 	if p_jitter_buffer.size() > 0:
-		last_packet = dict_get(p_jitter_buffer.back(), "packet")
+		last_packet = p_jitter_buffer.back()["packet"]
 	while p_jitter_buffer.size() < required_packets:
 		var fill_packets = null
 		# If using stretching, fill with last received packet
@@ -286,7 +273,7 @@ func attempt_to_feed_stream(
 		var packet_pushed: bool = false
 		var push_result: bool = false
 		if packet:
-			var buffer = dict_get(packet, "packet")
+			var buffer = packet["packet"]
 			if buffer:
 				uncompressed_audio = decompress_buffer(
 					p_decoder, buffer, buffer.size(), uncompressed_audio
@@ -328,16 +315,16 @@ func attempt_to_feed_stream(
 		p_audio_stream_player.pitch_scale = STREAM_STANDARD_PITCH
 
 func _process(_delta: float) -> void:
-	for key in player_audio.keys():
+	for elem in player_audio.keys():
 		attempt_to_feed_stream(
 			0,
-			dict_get(player_audio[key],"speech_decoder"),
-			dict_get(player_audio[key],"audio_stream_player"),
-			dict_get(player_audio[key],"jitter_buffer"),
-			dict_get(player_audio[key],"playback_stats"),
-			player_audio[key]
+			player_audio[elem]["speech_decoder"],
+			player_audio[elem]["audio_stream_player"],
+			player_audio[elem]["jitter_buffer"],
+			player_audio[elem]["playback_stats"],
+			player_audio[elem]
 		)
-		dict_set(player_audio[key], "packets_received_this_frame", 0)
+		player_audio["packets_received_this_frame"] = 0
 	packets_received_this_frame = 0
 
 
