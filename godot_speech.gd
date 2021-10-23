@@ -239,8 +239,9 @@ func attempt_to_feed_stream(
 	for _i in range(0, p_skip_count):
 		p_jitter_buffer.pop_front()
 
-	var playback: AudioStreamPlayback = p_audio_stream_player.get_stream_playback()
-		
+	var playback = p_audio_stream_player.get_stream_playback()
+	if playback == null:
+		return
 	if not p_player_dict["playback_start_time"]:
 		if float(playback.get_skips()) > 0:
 			p_player_dict["playback_start_time"] = Time.get_ticks_msec()
@@ -282,7 +283,7 @@ func attempt_to_feed_stream(
 					if uncompressed_audio.size() == voice_manager_const.BUFFER_FRAME_COUNT:
 						push_result =  playback.push_buffer(uncompressed_audio)
 						packet_pushed = true
-		if ! packet_pushed:
+		if !packet_pushed:
 			push_result = playback.push_buffer(blank_packet)
 
 		p_playback_stats.playback_ring_current_size = playback_ring_buffer_length - playback.get_frames_available()
