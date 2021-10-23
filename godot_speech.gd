@@ -90,13 +90,13 @@ func get_playback_stats(speech_statdict: Dictionary) -> Dictionary:
 		statdict[str(skey)] = (speech_statdict[skey])
 	statdict["capture_get_percent"] = 100.0 * statdict["capture_get_s"] / statdict["capture_pushed_s"]
 	statdict["capture_discard_percent"] = 100.0 * statdict["capture_discarded_s"] / statdict["capture_pushed_s"]
-#	for key in player_audio.keys():
-#		statdict[key] = player_audio[key]["playback_stats"].get_playback_stats(self)
-#		#statdict[key]["playback_prev_ticks"] = dict_get(player_audio[key],"playback_prev_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
-#		#statdict[key]["playback_start_ticks"] = dict_get(player_audio[key],"playback_start_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
-#		statdict[key]["playback_total_time"] = (Time.get_ticks_msec() - player_audio[key]["playback_start_time"]) / float(voice_manager_const.MILLISECONDS_PER_SECOND)
-#		statdict[key]["excess_packets"] = player_audio[key]["excess_packets"]
-#		statdict[key]["excess_s"] = player_audio[key]["excess_packets"] * voice_manager_const.PACKET_DELTA_TIME
+	for key in player_audio.keys():
+		statdict[key] = player_audio[key]["playback_stats"].get_playback_stats(self)
+		#statdict[key]["playback_prev_ticks"] = dict_get(player_audio[key],"playback_prev_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+		#statdict[key]["playback_start_ticks"] = dict_get(player_audio[key],"playback_start_time") / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+		statdict[key]["playback_total_time"] = (Time.get_ticks_msec() - player_audio[key]["playback_start_time"]) / float(voice_manager_const.MILLISECONDS_PER_SECOND)
+		statdict[key]["excess_packets"] = player_audio[key]["excess_packets"]
+		statdict[key]["excess_s"] = player_audio[key]["excess_packets"] * voice_manager_const.PACKET_DELTA_TIME
 	return statdict
 
 
@@ -161,8 +161,8 @@ func remove_player_audio(p_player_id: int) -> void:
 
 func clear_all_player_audio() -> void:
 	for key in player_audio.keys():
-		if player_audio[key].audio_stream_player:
-			player_audio[key].audio_stream_player.queue_free()
+		if player_audio[key]["audio_stream_player"]:
+			player_audio[key]["audio_stream_player"].queue_free()
 
 	player_audio = {}
 
@@ -324,7 +324,7 @@ func _process(_delta: float) -> void:
 			player_audio[elem]["playback_stats"],
 			player_audio[elem]
 		)
-		player_audio["packets_received_this_frame"] = 0
+		player_audio[elem]["packets_received_this_frame"] = 0
 	packets_received_this_frame = 0
 
 

@@ -68,7 +68,7 @@ func _player_connected(p_id : int) -> void:
 
 
 func _player_disconnected(p_id : int) -> void:
-	if get_tree().multiplayer.is_network_server():
+	if get_tree().multiplayer.is_server():
 		unregister_player(p_id)
 		for id in players:
 			# Erase in the server
