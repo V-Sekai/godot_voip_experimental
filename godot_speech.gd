@@ -253,7 +253,7 @@ func attempt_to_feed_stream(
 		p_jitter_buffer.pop_front()
 
 	var playback: AudioStreamPlayback = p_audio_stream_player.get_stream_playback()
-
+		
 	if not dict_get(p_player_dict,"playback_start_time"):
 		if float(playback.get_skips()) > 0:
 			p_player_dict["playback_start_time"] = Time.get_ticks_msec()
@@ -261,10 +261,11 @@ func attempt_to_feed_stream(
 			p_jitter_buffer.clear()
 		else:
 			return
-
-	if dict_get(p_player_dict,"playback_last_skips") != playback.get_skips():
-		p_player_dict["playback_prev_time"] = dict_get(p_player_dict,"playback_prev_time") - voice_manager_const.MILLISECONDS_PER_PACKET
-		p_player_dict["playback_last_skips"] = playback.get_skips()
+			
+# TODO: iFire 2021-10-22 Submit upstream
+#	if dict_get(p_player_dict,"playback_last_skips") != playback.get_skips():
+#		p_player_dict["playback_prev_time"] = dict_get(p_player_dict,"playback_prev_time") - voice_manager_const.MILLISECONDS_PER_PACKET
+#		p_player_dict["playback_last_skips"] = playback.get_skips()
 
 	var required_packets: int = (Time.get_ticks_msec() - dict_get(p_player_dict,"playback_prev_time")) / voice_manager_const.MILLISECONDS_PER_PACKET
 	p_player_dict["playback_prev_time"] = dict_get(p_player_dict,"playback_prev_time") + required_packets * voice_manager_const.MILLISECONDS_PER_PACKET
@@ -295,13 +296,14 @@ func attempt_to_feed_stream(
 						push_result =  playback.push_buffer(uncompressed_audio)
 						packet_pushed = true
 		if ! packet_pushed:
-			push_result =  playback.push_buffer(blank_packet)
+			push_result = playback.push_buffer(blank_packet)
 
 		p_playback_stats.playback_ring_current_size = playback_ring_buffer_length - playback.get_frames_available()
 		p_playback_stats.playback_ring_max_size = p_playback_stats.playback_ring_current_size if p_playback_stats.playback_ring_current_size > p_playback_stats.playback_ring_max_size else p_playback_stats.playback_ring_max_size
 		p_playback_stats.playback_ring_size_sum += 1.0 * p_playback_stats.playback_ring_current_size
-		p_playback_stats.playback_position = playback.get_playback_position()
-		p_playback_stats.playback_get_frames = playback.get_playback_position() * VOICE_PACKET_SAMPLERATE
+# TODO: iFire 2021-10-22 Submit upstream
+#		p_playback_stats.playback_position = playback.get_playback_position()
+#		p_playback_stats.playback_get_frames = playback.get_playback_position() * VOICE_PACKET_SAMPLERATE
 		p_playback_stats.playback_push_buffer_calls += 1
 		if ! packet_pushed:
 			p_playback_stats.playback_blank_push_calls += 1
